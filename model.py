@@ -4,6 +4,7 @@ from tensorflow.keras.layers import (
         MaxPooling2D, UpSampling2D, Input,
         concatenate
     )
+from tensorflow.keras.optimizers import Adam
 
 def bn_conv_relu(input, filters, bachnorm_momentum, **conv2d_args):
     x = BatchNormalization(momentum=bachnorm_momentum)(input)
