@@ -6,6 +6,22 @@ import glob
 import skimage.io as io
 import skimage.transform as trans
 
+Sky = [128,128,128]
+Building = [128,0,0]
+Pole = [192,192,128]
+Road = [128,64,128]
+Pavement = [60,40,222]
+Tree = [128,128,0]
+SignSymbol = [192,128,128]
+Fence = [64,64,128]
+Car = [64,0,128]
+Pedestrian = [64,64,0]
+Bicyclist = [0,128,192]
+Unlabelled = [0,0,0]
+
+COLOR_DICT = np.array([Sky, Building, Pole, Road, Pavement,
+                          Tree, SignSymbol, Fence, Car, Pedestrian, Bicyclist, Unlabelled])
+
 #base dict for augmentation parameters, can change here or also pass argument to function
 data_gen_args = dict(rotation_range=0.2,
                     width_shift_range=0.05,
@@ -77,7 +93,7 @@ def trainGenerator(batch_size,train_path,image_folder,mask_folder,aug_dict=data_
         img,mask = adjustData(img,mask,flag_multi_class,num_class)
         yield (img,mask)
 
-def testGenerator(test_path,num_image = 30,target_size = (256,256),flag_multi_class = False,as_gray = True):
+def testGenerator(test_path,num_image = 5,target_size = (256,256),flag_multi_class = False,as_gray = False):
     for i in range(num_image):
         img = io.imread(os.path.join(test_path,"%d.png"%i),as_gray = as_gray)
         img = img / 255

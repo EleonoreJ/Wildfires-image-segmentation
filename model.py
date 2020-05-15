@@ -5,6 +5,7 @@ from tensorflow.keras.layers import (
         concatenate
     )
 from tensorflow.keras.optimizers import Adam
+from tensorflow.keras.models import load_model
 
 def bn_conv_relu(input, filters, bachnorm_momentum, **conv2d_args):
     x = BatchNormalization(momentum=bachnorm_momentum)(input)
@@ -20,7 +21,11 @@ def satellite_unet(
     input_shape=(256,256,3),
     num_classes=1,
     output_activation='sigmoid',
-    num_layers=4):
+    num_layers=4,pretrained=None):
+
+    if pretrained is not None:
+        model=load_model(pretrained)
+        return model
 
     inputs = Input(input_shape)   
     
