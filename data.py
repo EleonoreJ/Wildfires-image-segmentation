@@ -42,7 +42,7 @@ def adjustData(img,mask,flag_multi_class,num_class):
 
 
 
-def trainGenerator(batch_size,train_path,image_folder,mask_folder,aug_dict=data_gen_args,image_color_mode = "grayscale",
+def trainGenerator(batch_size,train_path,image_folder,mask_folder,aug_dict=data_gen_args,image_color_mode = "rgb",
                     mask_color_mode = "grayscale",image_save_prefix  = "image",mask_save_prefix  = "mask",
                     flag_multi_class = False,num_class = 2,save_to_dir = None,target_size = (256,256),seed = 1):
     '''
