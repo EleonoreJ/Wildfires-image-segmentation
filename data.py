@@ -150,7 +150,7 @@ def test(test_path,target_size=(256,256)):
 
 def append_predict(filename):
     name, ext = os.path.splitext(filename)
-    return "{name}_predict{ext}".format(name=name,, ext=ext)
+    return "{name}_predict{ext}".format(name=name, ext=ext)
 
 def saveResults(save_path,results,names):
     for i in range(len(results)):
