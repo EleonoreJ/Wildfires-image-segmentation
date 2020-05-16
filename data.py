@@ -5,7 +5,7 @@ import os
 import glob
 import skimage.io as io
 import skimage.transform as trans
-from PIL import image
+#from PIL import image
 
 
 Sky = [128,128,128]
