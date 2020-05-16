@@ -1,10 +1,12 @@
 from __future__ import print_function
-from tensorflow.keras.preprocessing.image import ImageDataGenerator
+from tensorflow.keras.preprocessing.image import ImageDataGenerator,load_img,img_to_array,array_to_img
 import numpy as np 
 import os
 import glob
 import skimage.io as io
 import skimage.transform as trans
+from PIL import image
+
 
 Sky = [128,128,128]
 Building = [128,0,0]
@@ -133,3 +135,25 @@ def saveResult(save_path,npyfile,flag_multi_class = False,num_class = 2):
     for i,item in enumerate(npyfile):
         img = labelVisualize(num_class,COLOR_DICT,item) if flag_multi_class else item[:,:,0]
         io.imsave(os.path.join(save_path,"%d_predict.png"%i),img)
+
+
+def test(test_path,target_size=(256,256)):
+    X_test=[]
+    names=[]
+    for filename in os.listdir(test_path):
+        names.append(filename)
+        img=load_img(os.path.join(test_path,filename),target_size=target_size)
+        img=img_to_array(img)/255
+        X_test.append(img.copy())
+    return np.array(X_test),
+    
+
+def append_predict(filename):
+    name, ext = os.path.splitext(filename)
+    return "{name}_predict{ext}".format(name=name,, ext=ext)
+
+def saveResults(save_path,results,names):
+    for i in range(len(results)):
+        img=array_to_img(results[i])
+        img.save(os.path.join(save_path,append_predict(names[i])))
+
