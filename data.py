@@ -145,7 +145,7 @@ def test(test_path,target_size=(256,256)):
         img=load_img(os.path.join(test_path,filename),target_size=target_size)
         img=img_to_array(img)/255
         X_test.append(img.copy())
-    return np.array(X_test),
+    return np.array(X_test),names
     
 
 def append_predict(filename):
