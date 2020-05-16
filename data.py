@@ -156,7 +156,6 @@ def append_predict(filename):
     return "{name}_predict{ext}".format(name=name, ext=ext)
 
 def predToImgs(results):
-    results=model.predict(X_test,batch_size=3)>=0.5
     results_img=np.zeros((results.shape[0],results.shape[1],results.shape[2],3))
     results_img[:,:,:,0]=results[:,:,:,0]
     results_img[:,:,:,1]=results[:,:,:,0]
