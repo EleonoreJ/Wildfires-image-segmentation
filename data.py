@@ -142,8 +142,9 @@ def test(test_path,target_size=(256,256)):
     names=[]
     for filename in os.listdir(test_path):
         name, ext = os.path.splitext(filename)
-        if ext==".png":
-            names.append(filename)
+        if ext!=".png":
+            continue
+        names.append(filename)
         img=load_img(os.path.join(test_path,filename),target_size=target_size)
         img=img_to_array(img)/255
         X_test.append(img.copy())
