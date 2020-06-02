@@ -2,7 +2,9 @@ from __future__ import print_function
 from tensorflow.keras.preprocessing.image import ImageDataGenerator,load_img,img_to_array,array_to_img
 import numpy as np 
 import os
+import stat
 import glob
+import shutil
 import skimage.io as io
 import skimage.transform as trans
 #from PIL import image
@@ -142,7 +144,7 @@ def test(test_path,target_size=(256,256)):
     names=[]
     for filename in os.listdir(test_path):
         name, ext = os.path.splitext(filename)
-        if ext!=".png":
+        if ext!=".png" and ext!=".jpg":
             continue
         names.append(filename)
         img=load_img(os.path.join(test_path,filename),target_size=target_size)
@@ -164,9 +166,50 @@ def predToImgs(results):
     return results_img
 
 
-def saveResults(save_path,results,names):
+def saveResults(save_path,results,names,empty_dir=False):
+    if empty_dir:
+        clear_dir(save_path)
     results_img=predToImgs(results)
     for i in range(len(results)):
         img=array_to_img(results_img[i])
         img.save(os.path.join(save_path,append_predict(names[i])))
+        
+def _remove_readonly(fn, path_, excinfo):
+    # Handle read-only files and directories
+    if fn is os.rmdir:
+        os.chmod(path_, stat.S_IWRITE)
+        os.rmdir(path_)
+    elif fn is os.remove:
+        os.lchmod(path_, stat.S_IWRITE)
+        os.remove(path_)
+def force_remove_file_or_symlink(path_):
+    try:
+        os.remove(path_)
+    except OSError:
+        os.lchmod(path_, stat.S_IWRITE)
+        os.remove(path_)
 
+
+# Code from shutil.rmtree()
+def is_regular_dir(path_):
+    try:
+        mode = os.lstat(path_).st_mode
+    except os.error:
+        mode = 0
+    return stat.S_ISDIR(mode)
+
+
+def clear_dir(path_):
+    if is_regular_dir(path_):
+        # Given path is a directory, clear its content
+        for name in os.listdir(path_):
+            fullpath = os.path.join(path_, name)
+            if is_regular_dir(fullpath):
+                shutil.rmtree(fullpath, onerror=_remove_readonly)
+            else:
+                force_remove_file_or_symlink(fullpath)
+    else:
+        # Given path is a file or a symlink.
+        # Raise an exception here to avoid accidentally clearing the content
+        # of a symbolic linked directory.
+        raise OSError("Cannot call clear_dir() on a symbolic link")
