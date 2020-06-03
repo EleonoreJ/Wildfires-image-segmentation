@@ -1,3 +1,4 @@
+import tensorflow as tf
 from tensorflow.keras.models import Model
 from tensorflow.keras.layers import ( 
         BatchNormalization, Conv2D, Conv2DTranspose,
@@ -97,5 +98,5 @@ def satellite_unet(
     outputs = Conv2D(num_classes, kernel_size=(1,1), strides=(1,1), activation=output_activation, padding='valid') (x)       
     
     model = Model(inputs=[inputs], outputs=[outputs])
-    model.compile(optimizer = Adam(lr = 1e-4), loss = 'binary_crossentropy', metrics = ['accuracy'])
+    model.compile(optimizer = Adam(lr = 1e-4), loss = 'binary_crossentropy', metrics = ['accuracy', tf.keras.metrics.MeanIoU(num_classes=2)])
     return model
