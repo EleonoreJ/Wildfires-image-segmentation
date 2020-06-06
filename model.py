@@ -7,6 +7,8 @@ from tensorflow.keras.layers import (
     )
 from tensorflow.keras.optimizers import Adam
 from tensorflow.keras.models import load_model
+from tensorflow.keras import backend as K
+
 
 def bn_conv_relu(input, filters, bachnorm_momentum, **conv2d_args):
     x = BatchNormalization(momentum=bachnorm_momentum)(input)
