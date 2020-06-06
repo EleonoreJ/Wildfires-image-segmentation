@@ -61,7 +61,6 @@ def adjustData(img,mask,flag_multi_class,num_class):
     return (img,mask)
 
 
-
 def trainGenerator(batch_size,train_path,image_folder,mask_folder,aug_dict=data_gen_args,image_color_mode = "rgb",
                     mask_color_mode = "grayscale",image_save_prefix  = "image",mask_save_prefix  = "mask",
                     flag_multi_class = False,num_class = 2,save_to_dir = None,target_size = (256,256),seed = 1):
@@ -96,6 +95,49 @@ def trainGenerator(batch_size,train_path,image_folder,mask_folder,aug_dict=data_
     for (img,mask) in train_generator:
         img,mask = adjustData(img,mask,flag_multi_class,num_class)
         yield (img,mask)
+        
+        
+        
+def test(test_path,target_size=(256,256)):
+    X_test=[]
+    names=[]
+    for filename in os.listdir(test_path):
+        name, ext = os.path.splitext(filename)
+        if ext!=".png" and ext!=".jpg":
+            continue
+        names.append(filename)
+        img=load_img(os.path.join(test_path,filename),target_size=target_size)
+        img=img_to_array(img)/255
+        X_test.append(img.copy())
+    return np.array(X_test),names
+
+
+def generate_labels(folder, num_img, size, predict):
+    i=0
+    test_label = np.zeros((num_img, size,size,1))
+    for files in os.listdir(folder):
+        if predict:
+            if files.startswith("custom"):
+                mask=load_img(os.path.join(folder,files),target_size=(size,size), color_mode="grayscale")
+                mask=img_to_array(mask)
+                if(np.max(mask) > 1):
+                    mask = mask /255
+                mask[mask > 0.5] = 1
+                mask[mask <= 0.5] = 0
+                test_label[i,:,:,:] = mask
+                i+=1
+        else:
+            if not files.startswith("custom"):
+                mask=load_img(os.path.join(folder,files),target_size=(size,size), color_mode="grayscale")
+                mask=img_to_array(mask)
+                if(np.max(mask) > 1):
+                    mask = mask /255
+                mask[mask > 0.5] = 1
+                mask[mask <= 0.5] = 0
+                test_label[i,:,:,:] = mask
+                i+=1
+    return test_label
+    
 
 def testGenerator(test_path,num_image = 5,target_size = (256,256),flag_multi_class = False,as_gray = False):
     for filename in os.listdir(test_path):
@@ -138,20 +180,6 @@ def saveResult(save_path,npyfile,flag_multi_class = False,num_class = 2):
         img = labelVisualize(num_class,COLOR_DICT,item) if flag_multi_class else item[:,:,0]
         io.imsave(os.path.join(save_path,"%d_predict.png"%i),img)
 
-
-def test(test_path,target_size=(256,256)):
-    X_test=[]
-    names=[]
-    for filename in os.listdir(test_path):
-        name, ext = os.path.splitext(filename)
-        if ext!=".png" and ext!=".jpg":
-            continue
-        names.append(filename)
-        img=load_img(os.path.join(test_path,filename),target_size=target_size)
-        img=img_to_array(img)/255
-        X_test.append(img.copy())
-    return np.array(X_test),names
-    
 
 def append_predict(filename):
     name, ext = os.path.splitext(filename)

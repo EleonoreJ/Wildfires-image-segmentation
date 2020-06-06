@@ -98,5 +98,42 @@ def satellite_unet(
     outputs = Conv2D(num_classes, kernel_size=(1,1), strides=(1,1), activation=output_activation, padding='valid') (x)       
     
     model = Model(inputs=[inputs], outputs=[outputs])
-    model.compile(optimizer = Adam(lr = 1e-4), loss = 'binary_crossentropy', metrics = ['accuracy', tf.keras.metrics.MeanIoU(num_classes=2)])
+
     return model
+
+
+def mean_iou(y_true, y_pred):
+    y_pred = K.cast(K.greater(y_pred, .5), dtype='float32') # .5 is the threshold
+    inter = K.sum(K.sum(K.squeeze(y_true * y_pred, axis=3), axis=2), axis=1)
+    union = K.sum(K.sum(K.squeeze(y_true + y_pred, axis=3), axis=2), axis=1) - inter
+    return K.mean((inter + K.epsilon()) / (union + K.epsilon()))
+
+def mean_iou_neg(y_true, y_pred):
+    y_pred = K.cast(K.greater(y_pred, .5), dtype='float32') # .5 is the threshold
+    inter = K.sum(K.sum(K.squeeze(y_true * y_pred, axis=3), axis=2), axis=1)
+    union = K.sum(K.sum(K.squeeze(y_true + y_pred, axis=3), axis=2), axis=1) - inter
+    
+    y_pred_neg = tf.ones(tf.shape(y_pred), dtype='float32') - y_pred
+    y_true_neg = tf.ones(tf.shape(y_pred), dtype='float32') - y_true
+    inter_neg = K.sum(K.sum(K.squeeze(y_true_neg * y_pred_neg, axis=3), axis=2), axis=1)
+    union_neg = K.sum(K.sum(K.squeeze(y_true_neg + y_pred_neg, axis=3), axis=2), axis=1) - inter_neg
+    
+    inter = inter_neg + inter
+    union = union_neg + union
+    
+    return K.mean((inter) / (union + K.epsilon()))
+
+def dice_neg(y_true, y_pred):
+    y_pred = K.cast(K.greater(y_pred, .5), dtype='float32') # .5 is the threshold
+    num = K.sum(K.sum(K.squeeze(y_true * y_pred, axis=3), axis=2), axis=1)
+    den = K.sum(K.sum(K.squeeze(y_true + y_pred, axis=3), axis=2), axis=1) 
+    
+    y_pred_neg = tf.ones(tf.shape(y_pred), dtype='float32') - y_pred
+    y_true_neg = tf.ones(tf.shape(y_pred), dtype='float32') - y_true
+    num_neg = K.sum(K.sum(K.squeeze(y_true_neg * y_pred_neg, axis=3), axis=2), axis=1)
+    den_neg = K.sum(K.sum(K.squeeze(y_true_neg + y_pred_neg, axis=3), axis=2), axis=1)
+    
+    num = 2*(num + num_neg)
+    den = den + den_neg
+    
+    return K.mean((num) / (den + K.epsilon()))
