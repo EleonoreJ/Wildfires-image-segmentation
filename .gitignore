@@ -3,3 +3,8 @@ download/
 *pyc
 PlotNeuralNet/
 *.hdf5
+*.h5
+*.eps
+*.pkl
+*.npy
+
