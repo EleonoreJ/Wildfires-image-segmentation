@@ -7,6 +7,7 @@ import glob
 import shutil
 import skimage.io as io
 import skimage.transform as trans
+import pickle
 #from PIL import image
 
 
@@ -35,6 +36,14 @@ data_gen_args = dict(rotation_range=0.2,
                     horizontal_flip=True,
                     fill_mode='nearest')
 
+def save_obj(obj, name ):
+    with open(name + '.pkl', 'wb') as f:
+        pickle.dump(obj, f, pickle.HIGHEST_PROTOCOL)
+
+def load_obj(name ):
+    with open(name + '.pkl', 'rb') as f:
+        return pickle.load(f)
+
 
 def adjustData(img,mask,flag_multi_class,num_class):
     if(flag_multi_class):
@@ -45,10 +54,6 @@ def adjustData(img,mask,flag_multi_class,num_class):
             mask[:,:,0]
         new_mask = np.zeros(mask.shape + (num_class,))
         for i in range(num_class):
-            #for one pixel in the image, find the class in mask and convert it into one-hot vector
-            #index = np.where(mask == i)
-            #index_mask = (index[0],index[1],index[2],np.zeros(len(index[0]),dtype = np.int64) + i) if (len(mask.shape) == 4) else (index[0],index[1],np.zeros(len(index[0]),dtype = np.int64) + i)
-            #new_mask[index_mask] = 1
             new_mask[mask == i,i] = 1
         new_mask = np.reshape(new_mask,(new_mask.shape[0],new_mask.shape[1]*new_mask.shape[2],new_mask.shape[3])) if flag_multi_class else np.reshape(new_mask,(new_mask.shape[0]*new_mask.shape[1],new_mask.shape[2]))
         
@@ -61,7 +66,7 @@ def adjustData(img,mask,flag_multi_class,num_class):
     return (img,mask)
 
 
-def trainGenerator(batch_size,train_path,image_folder,mask_folder,aug_dict=data_gen_args,image_color_mode = "rgb",
+def trainGenerator_simple(batch_size,train_path,image_folder,mask_folder,aug_dict=data_gen_args,image_color_mode = "rgb",
                     mask_color_mode = "grayscale",image_save_prefix  = "image",mask_save_prefix  = "mask",
                     flag_multi_class = False,num_class = 2,save_to_dir = None,target_size = (256,256),seed = 1):
     '''
@@ -93,10 +98,81 @@ def trainGenerator(batch_size,train_path,image_folder,mask_folder,aug_dict=data_
         seed = seed)
     train_generator = zip(image_generator, mask_generator)
     for (img,mask) in train_generator:
+        img,mask = adjustData(img,mask,flag_multi_class = False , num_class = 1)
+        yield (img,mask)
+
+def trainGenerator(batch_size,train_path,image_folder,mask_folder,aug_dict=data_gen_args,image_color_mode = "rgb",
+                    mask_color_mode = "grayscale",image_save_prefix  = "image",mask_save_prefix  = "mask",
+                    flag_multi_class = False,num_class = 2,save_to_dir = None,
+                   target_size = (256,256),seed = 1):
+    '''
+    can generate image and mask at the same time
+    use the same seed for image_datagen and mask_datagen to ensure the transformation for image and mask is the same
+    if you want to visualize the results of generator, set save_to_dir = "your path"
+    '''
+    image_datagen = ImageDataGenerator(**aug_dict, validation_split=0.2, rescale=1./255)
+    mask_datagen = ImageDataGenerator(**aug_dict, validation_split=0.2, rescale=1./255)
+    
+    image_generator = image_datagen.flow_from_directory(
+        train_path,
+        classes = [image_folder],
+        class_mode = None,
+        color_mode = image_color_mode,
+        target_size = target_size,
+        batch_size = batch_size,
+        save_to_dir = save_to_dir,
+        save_prefix  = image_save_prefix,
+        subset = 'training',
+        seed = seed) 
+    image_val_generator = image_datagen.flow_from_directory(
+        train_path,
+        classes = [image_folder],
+        class_mode = None,
+        color_mode = image_color_mode,
+        target_size = target_size,
+        batch_size = batch_size,
+        save_to_dir = save_to_dir,
+        save_prefix  = image_save_prefix,
+        subset = 'validation',
+        seed = seed)
+    
+    mask_generator = mask_datagen.flow_from_directory(
+        train_path,
+        classes = [mask_folder],
+        class_mode = None,
+        color_mode = mask_color_mode,
+        target_size = target_size,
+        batch_size = batch_size,
+        save_to_dir = save_to_dir,
+        save_prefix  = mask_save_prefix,
+        subset = 'training',
+        seed = seed)
+    mask_val_generator = mask_datagen.flow_from_directory(
+        train_path,
+        classes = [mask_folder],
+        class_mode = None,
+        color_mode = mask_color_mode,
+        target_size = target_size,
+        batch_size = batch_size,
+        save_to_dir = save_to_dir,
+        save_prefix  = mask_save_prefix,
+        subset = 'validation',
+        seed = seed)
+    
+        
+    return image_generator, image_val_generator, mask_generator, mask_val_generator
+
+def train(image_generator, mask_generator, flag_multi_class = False, num_class = 2):
+    train_generator = zip(image_generator, mask_generator)
+    for (img,mask) in train_generator:
         img,mask = adjustData(img,mask,flag_multi_class,num_class)
         yield (img,mask)
         
-        
+def val(image_val_generator, mask_val_generator, flag_multi_class = False, num_class = 2):
+    val_generator = zip(image_val_generator, mask_val_generator)
+    for (img_val,mask_val) in val_generator:
+        img_val,mask_val = adjustData(img_val,mask_val,flag_multi_class,num_class)       
+        yield (img_val,mask_val)
         
 def test(test_path,target_size=(256,256)):
     X_test=[]
@@ -112,74 +188,48 @@ def test(test_path,target_size=(256,256)):
     return np.array(X_test),names
 
 
-def generate_labels(folder, num_img, size, predict):
-    i=0
-    test_label = np.zeros((num_img, size,size,1))
-    for files in os.listdir(folder):
-        if predict:
-            if files.startswith("custom"):
-                mask=load_img(os.path.join(folder,files),target_size=(size,size), color_mode="grayscale")
-                mask=img_to_array(mask)
-                if(np.max(mask) > 1):
-                    mask = mask /255
-                mask[mask > 0.5] = 1
-                mask[mask <= 0.5] = 0
-                test_label[i,:,:,:] = mask
-                i+=1
-        else:
-            if not files.startswith("custom"):
-                mask=load_img(os.path.join(folder,files),target_size=(size,size), color_mode="grayscale")
-                mask=img_to_array(mask)
-                if(np.max(mask) > 1):
-                    mask = mask /255
-                mask[mask > 0.5] = 1
-                mask[mask <= 0.5] = 0
-                test_label[i,:,:,:] = mask
-                i+=1
+def generate_labels(folder, names, num_img, size):
+    test_label = np.zeros((num_img, size, size, 1))
+    for (i, file) in enumerate(names):
+        file = file.rstrip(".png")+".jpg"
+        if file.startswith("2MSI"):
+#             print(file)
+            mask=load_img(os.path.join(folder,file),target_size=(size,size), color_mode="grayscale")
+            mask=img_to_array(mask)
+            if(np.max(mask) > 1):
+                mask = mask /255
+            mask[mask > 0.5] = 1
+            mask[mask <= 0.5] = 0
+            test_label[i,:,:,:] = mask     
+    return test_label
+
+def generate_predict(folder, names, num_img, size, filenamestart):
+    test_label = np.zeros((num_img, size, size, 1))
+    for (i, file) in enumerate(names):
+#         file = file.rstrip(".png")+".jpg"
+        file = file.rstrip(".png")+"_predict.png"
+#         print(filenamestart + file)
+        mask=load_img(os.path.join(folder,filenamestart + file),target_size=(size,size), color_mode="grayscale")
+        mask=img_to_array(mask)
+        if(np.max(mask) > 1):
+            mask = mask /255
+            mask[mask > 0.5] = 1
+            mask[mask <= 0.5] = 0
+            test_label[i,:,:,:] = mask
     return test_label
     
-
-def testGenerator(test_path,num_image = 5,target_size = (256,256),flag_multi_class = False,as_gray = False):
-    for filename in os.listdir(test_path):
-        img = io.imread(os.path.join(test_path,filename),as_gray = as_gray)
-        img = img / 255
-        img = trans.resize(img,target_size)
-        img = np.reshape(img,img.shape+(1,)) if (not flag_multi_class) else img
-        img = np.reshape(img,(1,)+img.shape)
-        yield img
-
-
-def geneTrainNpy(image_path,mask_path,flag_multi_class = False,num_class = 2,image_prefix = "image",mask_prefix = "mask",image_as_gray = True,mask_as_gray = True):
-    image_name_arr = glob.glob(os.path.join(image_path,"%s*.png"%image_prefix))
-    image_arr = []
-    mask_arr = []
-    for index,item in enumerate(image_name_arr):
-        img = io.imread(item,as_gray = image_as_gray)
-        img = np.reshape(img,img.shape + (1,)) if image_as_gray else img
-        mask = io.imread(item.replace(image_path,mask_path).replace(image_prefix,mask_prefix),as_gray = mask_as_gray)
-        mask = np.reshape(mask,mask.shape + (1,)) if mask_as_gray else mask
-        img,mask = adjustData(img,mask,flag_multi_class,num_class)
-        image_arr.append(img)
-        mask_arr.append(mask)
-    image_arr = np.array(image_arr)
-    mask_arr = np.array(mask_arr)
-    return image_arr,mask_arr
-
-
-def labelVisualize(num_class,color_dict,img):
-    img = img[:,:,0] if len(img.shape) == 3 else img
-    img_out = np.zeros(img.shape + (3,))
-    for i in range(num_class):
-        img_out[img == i,:] = color_dict[i]
-    return img_out / 255
-
-
-
+def create_pred(filestartname, model, folder_img = "dataset/test_images", folder_pred =  "/dataset/predict"):
+    X_test,names=test(folder_img)
+    names = [filestartname + name for name in names]
+    preds=model_load.predict(X_test)
+    preds=preds>0.5
+    results=predToImgs(preds)
+    saveResults(os.getcwd()+folder_pred,results,names,empty_dir=False)
+    
 def saveResult(save_path,npyfile,flag_multi_class = False,num_class = 2):
     for i,item in enumerate(npyfile):
         img = labelVisualize(num_class,COLOR_DICT,item) if flag_multi_class else item[:,:,0]
         io.imsave(os.path.join(save_path,"%d_predict.png"%i),img)
-
 
 def append_predict(filename):
     name, ext = os.path.splitext(filename)
@@ -201,43 +251,3 @@ def saveResults(save_path,results,names,empty_dir=False):
     for i in range(len(results)):
         img=array_to_img(results_img[i])
         img.save(os.path.join(save_path,append_predict(names[i])))
-        
-def _remove_readonly(fn, path_, excinfo):
-    # Handle read-only files and directories
-    if fn is os.rmdir:
-        os.chmod(path_, stat.S_IWRITE)
-        os.rmdir(path_)
-    elif fn is os.remove:
-        os.lchmod(path_, stat.S_IWRITE)
-        os.remove(path_)
-def force_remove_file_or_symlink(path_):
-    try:
-        os.remove(path_)
-    except OSError:
-        os.lchmod(path_, stat.S_IWRITE)
-        os.remove(path_)
-
-
-# Code from shutil.rmtree()
-def is_regular_dir(path_):
-    try:
-        mode = os.lstat(path_).st_mode
-    except os.error:
-        mode = 0
-    return stat.S_ISDIR(mode)
-
-
-def clear_dir(path_):
-    if is_regular_dir(path_):
-        # Given path is a directory, clear its content
-        for name in os.listdir(path_):
-            fullpath = os.path.join(path_, name)
-            if is_regular_dir(fullpath):
-                shutil.rmtree(fullpath, onerror=_remove_readonly)
-            else:
-                force_remove_file_or_symlink(fullpath)
-    else:
-        # Given path is a file or a symlink.
-        # Raise an exception here to avoid accidentally clearing the content
-        # of a symbolic linked directory.
-        raise OSError("Cannot call clear_dir() on a symbolic link")
